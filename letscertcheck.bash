@@ -191,6 +191,31 @@ example=0
 
 
 # Params:
+#   <char> <count>
+function repchar() {
+    # Expecting 2 params
+    [ ${#} -ne 2 ] && {
+        echo >&2 "ERROR: Invalid number of parameters"
+        return 1
+    }
+
+    # If first param is NULL, obviously the output will be nothing
+    [ -z "${1}" ] && echo && return 0
+
+    # Second param must be a number
+    [ "${2}" -eq "${2}" ] &>/dev/null || {
+        echo >&2 "ERROR: Invalid <num>: ${2}"
+        return 1
+    }
+
+    # If second param is a zero, obviously the output will be nothing
+    [ "${2}" -eq 0 ] && echo && return 0
+
+    printf "${1}%.0s" $(eval echo "{1..${2}}")
+    echo
+} # repchar
+
+# Params:
 #   NONE
 function show_version() {
     echo -e "\
@@ -210,8 +235,11 @@ ${APP_NAME} retrieves the expiry of provided domains' certificates.
 Usage: ${PROG} -h|--help
        ${PROG} -V|--version
        ${PROG} -C|--configuration
-       ${PROG} [-v|--verbose]
-               [-x|--example]
+
+       ${PROG} [-v|--verbose] [-n|--nocolour|--nocolor]
+       $(repchar " " ${#PROG}) -x|--example
+
+       ${PROG} [-v|--verbose] [-n|--nocolour|--nocolor]
 
 -h|--help           - Displays this help
 -V|--version        - Displays the program version
