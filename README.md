@@ -8,7 +8,7 @@ _    ____ ___ ____ ____ ____ ____ ___ ____ _  _ ____ ____ _  _
 
 ## Introduction
 
-//Lets Cert Check// retrieves the expiry of provided domains' certificates.
+_Lets Cert Check_ retrieves the expiry of provided domains' certificates.
 
 ## Availability
 
