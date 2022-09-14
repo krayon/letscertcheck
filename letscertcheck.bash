@@ -1,10 +1,9 @@
 #!/bin/bash
-# vim:set ts=4 sw=4 tw=80 et cindent ai cino=(0,ml,\:0:
-# ( settings from: http://datapax.com.au/code_conventions/ )
+# vim:set ts=4 sw=4 tw=80 et ai si cindent cino=L0,b1,(1s,U1,m1,j1,J1,)50,*90 cinkeys=0{,0},0),0],\:,0#,!^F,o,O,e,0=break:
 #
 #/**********************************************************************
 #    LetsCertCheck
-#    Copyright (C) 2017 Todd Harbour
+#    Copyright (C) 2017-2022 Krayon (Todd Harbour)
 #
 #    This program is free software; you can redistribute it and/or
 #    modify it under the terms of the GNU General Public License
@@ -25,9 +24,16 @@
 # letscertcheck
 #--------------
 # Checks expiry on domain certificates
+#
+# Required:
+#     openssl
+# Recommended:
+#     -
 
 # Config paths
-_ETC_CONF="/etc/letscertcheck.conf"
+_APP_NAME="letscertcheck"
+_CONF_FILENAME="${_APP_NAME}.conf"
+_ETC_CONF="/etc/${_CONF_FILENAME}"
 _HOME_CONF="${HOME}/.letscertcheckrc"
 
 
@@ -35,26 +41,39 @@ _HOME_CONF="${HOME}/.letscertcheckrc"
 ############### STOP ###############
 #
 # Do NOT edit the CONFIGURATION below. Instead generate the default
-# configuration file in your home directory thusly:
+# configuration file in your XDG_CONFIG directory thusly:
 #
-#     ./letscertcheck.bash -C >~/.letscertcheckrc
+#     ./loremipsum.bash -C >"$XDG_CONFIG_HOME/loremipsum.conf"
+#
+# or perhaps:
+#     ./letscertcheck.bash -C >~/.config/letscertcheck.conf
+#
+# or even in your home directory (deprecated):
+#     ./letscertcheck.bash -C >~/.letscertcheck.conf
+#
+# Consult --help for more complete information.
 #
 ####################################
 
 # [ CONFIG_START
 
-# hosts file update Default Configuration
+# Lets Cert Check - Default Configuration
 # =======================================
 
 # DEBUG
-#   This defines debug mode which will output verbose info to stderr
-#   or, if configured, the debug file ( ERROR_LOG ).
+#   This defines debug mode which will output verbose info to stderr or, if
+#   configured, the debug file ( ERROR_LOG ).
 DEBUG=0
 
 # ERROR_LOG
-#   The file to output errors and debug statements (when DEBUG !=
-#   0) instead of stderr.
-#ERROR_LOG="/tmp/letscertcheck.log"
+#   The file to output errors and debug statements (when DEBUG != 0) instead of
+#   stderr.
+#ERROR_LOG="${HOME}/letscertcheck.log"
+
+# PATH_OPENSSL
+#   The path to the openssl binary. If set to "*", $PATH is used (ie.
+#   "openssl" called without a path).
+PATH_OPENSSL="*"
 
 # COLOUR_OUTPUT
 #   Whether or not to output the results in colour.
@@ -111,19 +130,77 @@ DOMAINS_STARTTLS=()
 
 # ] CONFIG_END
 
+
+
+####################################{
 ###
 # Config loading
 ###
-[ ! -z "${_ETC_CONF}"  ] && [ -r "${_ETC_CONF}"  ] && . "${_ETC_CONF}"
-[ ! -z "${_HOME_CONF}" ] && [ -r "${_HOME_CONF}" ] && . "${_HOME_CONF}"
+
+# A list of configs - user provided prioritised over system
+# (built backwards to save fiddling with CONFIG_DIRS order)
+_CONFS=""
+
+# XDG Base (v0.8) - User level
+# ( https://specifications.freedesktop.org/basedir-spec/0.8/ )
+# ( xdg_base_spec.0.8.txt )
+_XDG_CONF_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}"
+# As per spec, non-absolute paths are invalid and must be ignored
+[ "${_XDG_CONF_DIR:0:1}" == "/" ] && {
+        for conf in\
+            "${_XDG_CONF_DIR}/${_APP_NAME}/${_CONF_FILENAME}"\
+            "${_XDG_CONF_DIR}/${_CONF_FILENAME}"\
+        ; do #{
+            [ -r "${conf}" ] && _CONFS="${conf}:${_CONFS}"
+        done #}
+}
+
+# XDG Base (v0.8) - System level
+# ( https://specifications.freedesktop.org/basedir-spec/0.8/ )
+# ( xdg_base_spec.0.8.txt )
+_XDG_CONF_DIRS="${XDG_CONFIG_DIRS:-/etc/xdg}"
+# NOTE: Appending colon as read's '-d' sets the TERMINATOR (not delimiter)
+[ "${_XDG_CONF_DIRS: -1:1}" != ":" ] && _XDG_CONF_DIRS="${_XDG_CONF_DIRS}:"
+while read -r -d: _XDG_CONF_DIR; do #{
+    # As per spec, non-absolute paths are invalid and must be ignored
+    [ "${_XDG_CONF_DIR:0:1}" == "/" ] && {
+        for conf in\
+            "${_XDG_CONF_DIR}/${_APP_NAME}/${_CONF_FILENAME}"\
+            "${_XDG_CONF_DIR}/${_CONF_FILENAME}"\
+        ; do #{
+            [ -r "${conf}" ] && _CONFS="${conf}:${_CONFS}"
+        done #}
+    }
+done <<<"${_XDG_CONF_DIRS}" #}
+
+# OLD standard
+[ -r "${HOME}/.${_CONF_FILENAME}" ] && _CONFS="${HOME}/.${_CONF_FILENAME}:${_CONFS}"
+
+# _CONFS now contains a list of config files, in reverse importance order. We
+# can therefore source each in turn, allowing the more important to override the
+# earlier ones.
+
+# NOTE: Appending colon as read's '-d' sets the TERMINATOR (not delimiter)
+[ "${_CONF: -1:1}" != ":" ] && _CONF="${_CONF}:"
+while read -r -d: conf; do #{
+    . "${conf}"
+done <<<"${_CONFS}" #}
+####################################}
+
+
+# Quit on error
+set -e
 
 # Version
 APP_NAME="Lets Cert Check"
 APP_VER="0.00"
-APP_URL="http://gitlab.com/krayon/letscertcheck/"
+APP_COPY="(C)2017-2022 Krayon (Todd Harbour)"
+APP_URL="http://github.com/krayon/letscertcheck/"
 
 # Program name
-PROG="${0##*/}"
+_binname="${_APP_NAME}"
+_binname="${0##*/}"
+_binnam_="${_binname//?/ }"
 
 # exit condition constants
 ERR_NONE=0
@@ -145,6 +222,7 @@ ERR_PROTOCOL=76    # remote error in protocol
 ERR_NOPERM=77      # permission denied
 ERR_CONFIG=78      # configuration error
 # END   /usr/include/sysexits.h }
+ERR_MISSINGDEP=90
 
 # Defaults not in config
 
@@ -191,8 +269,159 @@ example=0
 
 
 # Params:
+#   $1 =  (s) command to look for
+#   $2 = [(s) complete path to binary, DEFAULT: $1]
+#   $3 = [(i) print error? (1 = yes, 0 = no), DEFAULT: yes]
+#   $4 = [(i) is this a required package? (1 = yes, 0 = no), DEFAULT: yes]
+#   $5 = [(s) suspected package name]
+# Outputs:
+#   Path to command, if found
+# Returns:
+#   $ERR_NONE
+#   -or-
+#   $ERR_MISSINGDEP
+check_for_cmd() {
+    # Check for ${1} command
+    local ret=${ERR_NONE}
+    local path=""
+    [ ${#} -ge 1 ] && local cmd="${1}" && shift 1
+    [ ${#} -ge 1 ] && local bin="${1}" && shift 1
+    [ ${#} -ge 1 ] && local msg="${1}" && shift 1
+    [ ${#} -ge 1 ] && local req="${1}" && shift 1
+    [ ${#} -ge 1 ] && local pkg="${1}" && shift 1
+
+    [ -z "${bin}" ] && bin="${cmd}"
+    [ -z "${msg}" ] && msg="1"
+    [ -z "${req}" ] && req="1"
+    [ -z "${pkg}" ] && pkg="${cmd}"
+
+    path="$(type -P "${bin}" 2>&1)" || {
+        # Not found
+        ret=${ERR_MISSINGDEP}
+
+        [ "${msg}" -eq 1 ] &>/dev/null && {
+            [ "${req}" -eq 0 ] && {
+                unset req req_head
+            } || {
+                req='  This is required.'
+                req_head='ERROR'
+            }
+
+cat <<EOF >&2
+${req_head:-WARNING}: Cannot find ${cmd}${bin:+ (as }${bin}${bin:+)}.${req:-}
+Ensure it is in your PATH, set (or unset) an explicit path in the configuration,
+confirm you have ${pkg} installed or search for ${cmd} in your distribution's
+packages.
+EOF
+
+            return ${ret}
+        }
+    }
+
+    [ ! -z "${path}" ] && echo "${path}"
+
+    return ${ret}
+} # check_for_cmd()
+
+# Params:
+#   NONE
+show_version() {
+    echo -e "\n\
+${APP_NAME} v${APP_VER}\n\
+${APP_COPY}\n\
+${APP_URL}${APP_URL:+\n}\
+"
+} # show_version()
+
+# Params:
+#   NONE
+show_usage() {
+    show_version
+
+cat <<EOF
+
+${APP_NAME} retrieves the expiry of provided domains' certificates.
+
+Usage: ${_binname} [-v|--verbose] -h|--help
+       ${_binname} [-v|--verbose] -V|--version
+       ${_binname} [-v|--verbose] -C|--configuration
+
+       ${_binname} [-v|--verbose] [-n|--nocolour|--nocolor]
+       ${_binnam_} -x|--example
+
+       ${_binname} [-v|--verbose] [-n|--nocolour|--nocolor]
+
+-h|--help           - Displays this help
+-V|--version        - Displays the program version
+-C|--configuration  - Outputs the default configuration that can be placed in a
+                      config file in XDG_CONFIG or one of the XDG_CONFIG_DIRS
+                      (in order of decreasing precedence):
+                          ${XDG_CONFIG_HOME:-${HOME}/.config}/${_APP_NAME}/${_CONF_FILENAME}
+                          ${XDG_CONFIG_HOME:-${HOME}/.config}/${_CONF_FILENAME}
+EOF
+    while read -r -d: _XDG_CONF_DIR; do #{
+        # As per spec, non-absolute paths are invalid and must be ignored
+        [ "${_XDG_CONF_DIR:0:1}" != "/" ] && continue
+cat <<EOF
+                          ${_XDG_CONF_DIR}/${_APP_NAME}/${_CONF_FILENAME}
+                          ${_XDG_CONF_DIR}/${_CONF_FILENAME}
+EOF
+    done <<<"${_XDG_CONF_DIRS:-/etc/xdg}:" #}
+cat <<EOF
+                          ${HOME}/.${_CONF_FILENAME}
+                      for editing.
+-v|--verbose        - Displays extra debugging information.  This is the same
+                      as setting DEBUG=1 in your config.
+-n|--nocolour|--nocolor
+                    - Output is not coloured. This is the same as setting
+                      COLOUR_OUTPUT=0 in your config.
+-x|--example        - Shows example output for a series of test domains.
+
+Example: ${_binname}
+EOF
+
+} # show_usage()
+
+# Clean up
+cleanup() {
+    decho "Clean Up"
+
+    [ -n "${pwd}"    ] && cd "${pwd}"        &>/dev/null
+} # cleanup()
+
+trapint() {
+    >&2 echo "WARNING: Signal received: ${1}"
+
+    cleanup
+
+    exit ${1}
+} # trapint()
+
+# Output configuration file
+output_config() {
+    sed -n '/^# \[ CONFIG_START/,/^# \] CONFIG_END/p' <"${0}"
+} # output_config()
+
+# Debug echo
+decho() {
+    # global $DEBUG
+    local line
+
+    # Not debugging, get out of here then
+    [ -z "${DEBUG}" ] || [ "${DEBUG}" -le 0 ] && return
+
+    # If message is "-" or isn't specified, use stdin ("" is valid input)
+    msg="${@}"
+    [ ${#} -lt 1 ] || [ "${msg}" == "-" ] && msg="$(</dev/stdin)"
+
+    while IFS="" read -r line; do #{
+        >&2 echo "[$(date +'%Y-%m-%d %H:%M')] DEBUG: ${line}"
+    done< <(echo "${msg}") #}
+} # decho()
+
+# Params:
 #   <char> <count>
-function repchar() {
+repchar() {
     # Expecting 2 params
     [ ${#} -ne 2 ] && {
         echo >&2 "ERROR: Invalid number of parameters"
@@ -213,95 +442,38 @@ function repchar() {
 
     printf "${1}%.0s" $(eval echo "{1..${2}}")
     echo
-} # repchar
+} # repchar()
 
-# Params:
-#   NONE
-function show_version() {
-    echo -e "\
-${APP_NAME} v${APP_VER}\n\
-${APP_URL}\n\
-"
-}
 
-# Params:
-#   NONE
-function show_usage() {
-    show_version
-cat <<EOF
 
-${APP_NAME} retrieves the expiry of provided domains' certificates.
+# START #
 
-Usage: ${PROG} -h|--help
-       ${PROG} -V|--version
-       ${PROG} -C|--configuration
+# Clear DEBUG if it's 0
+[ -n "${DEBUG}" ] && [ "${DEBUG}" == "0" ] && DEBUG=
 
-       ${PROG} [-v|--verbose] [-n|--nocolour|--nocolor]
-       $(repchar " " ${#PROG}) -x|--example
+# If debug file, redirect stderr out to it
+[ -n "${ERROR_LOG}" ] && exec 2>>"${ERROR_LOG}"
 
-       ${PROG} [-v|--verbose] [-n|--nocolour|--nocolor]
 
--h|--help           - Displays this help
--V|--version        - Displays the program version
--C|--configuration  - Outputs the default configuration that can be placed in
-                          ${_ETC_CONF}
-                      or
-                          ${_HOME_CONF}
-                      for editing.
--n|--nocolour|--nocolor
-                    - Output is not coloured. This is the same as setting
-                      COLOUR_OUTPUT=0 in your config.
--v|--verbose        - Displays extra debugging information.  This is the same
-                      as setting DEBUG=1 in your config.
--x|--example        - Shows example output for a series of test domains.
 
-Example: ${PROG}
-EOF
-}
+# SIGINT  =  2 # (CTRL-c etc)
+# SIGKILL =  9
+# SIGUSR1 = 10
+# SIGUSR2 = 12
+for sig in 2 9 10 12; do #{
+    trap "trapint ${sig}" ${sig}
+done #}
 
-# cleanup
-function cleanup() {
-    decho "Clean Up"
 
-    cd "${pwd}" &>/dev/null
-}
 
-function trapint() {
-    echo "WARNING: Signal received: ${1}" >&2
-
-    cleanup
-
-    exit ${1}
-}
-
-# Output configuration file
-function output_config() {
-    cat "${0}"|\
-         grep -A99999 '# \[ CONFIG_START'\
-        |grep -v      '# \[ CONFIG_START'\
-        |grep -B99999 '# \] CONFIG_END'  \
-        |grep -v      '# \] CONFIG_END'  \
-    #
-}
-
-# Debug echo
-function decho() {
-    local line
-
-    # Not debugging, get out of here then
-    [ ${DEBUG} -le 0 ] && return
-
-    while read -r line; do #{
-        echo >&2 "[$(date +'%Y-%m-%d %H:%M')] DEBUG: ${line}"
-    done< <(echo "${@}") #}
-}
+#----------------------------------------------------------
 
 # Get certificate
 #     $1 == host
 #     $2 == port
 #     $3 == [servername] (if not specified, uses host)
 #     $4 == [protocol] (if specified, does starttls)
-function getcert() {
+getcert() {
     [ ${#} -lt 2 ] || [ ${#} -gt 4 ] && return ${ERR_USAGE}
 
     local host="${1}" && shift 1
@@ -342,7 +514,7 @@ function getcert() {
 
         echo "${cout}"
         return ${cret}
-    }
+    } # getcert()
 
     eval "$({ cerr=$({ cout=$(
         echo "quit"\
@@ -365,11 +537,11 @@ function getcert() {
 
     echo "${cout}"
     return ${cret}
-}
+} # getcert()
 
 # Get certificate expiry
 #     $1 == cert data (from getcert())
-function getcertexp() {
+getcertexp() {
     datadates="$(\
         echo "${data}"\
         |openssl\
@@ -382,14 +554,14 @@ function getcertexp() {
         echo -E "${datadates}"\
         |sed -n -e 's#^notAfter=\(.*\)$#\1#p'\
     )"
-}
+} # getcertexp()
 
 # outputstatus [-b] <date_in_%s> <extra> [<print_rem>]
 #     -b         - NOT colour output
 #     date_in_%s - Date in secs since unix epoch
 #     extra      - host name etc
 #     print_rem  - print human readable remaining time
-function outputstatus() {
+outputstatus() {
     local usecolour=1; [ "${1}" == "-b" ] && usecolour=0 && shift 1
 
     [ ${#} -gt 3 ] || [ ${#} -lt 2 ] && return ${ERR_USAGE}
@@ -424,41 +596,31 @@ function outputstatus() {
     echo -e "${colon}$(
         date --rfc-3339=seconds -d "@${to}"
     )${rem:+ ${exp}} ${extra}${coloff}"
-}
+} # outputstatus()
 
 
 
-# START #
-
-# If debug file, redirect stderr out to it
-[ ! -z "${ERROR_LOG}" ] && exec 2>>"${ERROR_LOG}"
-
-decho "START"
-
-# SIGINT  =  2 # (CTRL-c etc)
-# SIGKILL =  9
-# SIGUSR1 = 10
-# SIGUSR2 = 12
-for sig in 2 9 10 12; do #{
-    trap "trapint ${sig}" ${sig}
-done #}
-
-# Check for required commands
+#----------------------------------------------------------
 
 # Process command line parameters
 opts=$(\
     getopt\
         --options v,h,V,C,n,x\
         --long verbose,help,version,configuration,nocolour,nocolor,example\
-        --name "$PROG"\
+        --name "${_binname}"\
         --\
         "$@"\
-)
+) || {
+    >&2 echo "ERROR: Syntax error"
+    >&2 show_usage
+    exit ${ERR_USAGE}
+}
+
 eval set -- "${opts}"
 unset opts
 
 while :; do #{
-    case "$1" in #{
+    case "${1}" in #{
         # Verbose mode # [-v|--verbose]
         -v|--verbose)
             decho "Verbose mode specified"
@@ -515,7 +677,9 @@ while :; do #{
     shift
 
 done #}
-[ "${COLOUR_OUTPUT}" == "1" ] && COLOUR_OUTPUT=""
+
+# Clear COLOUR_OUTPUT if it's 1
+[ -n "${COLOUR_OUTPUT}" ] && [ "${COLOUR_OUTPUT}" == "1" ] && COLOUR_OUTPUT=
 
 # Maybe we just want an example?
 [ ${example} -eq 1 ] && {
@@ -534,18 +698,29 @@ done #}
     exit ${ERR_NONE}
 }
 
-# Check for non-optional parameters
-
-
-
+# Unrecognised parameters
 [ ${#} -gt 0 ] && {
-    >&2 echo "ERROR: Too many parameters: ${@}..."
+    >&2 echo "ERROR: Unrecognised parameters: ${@}..."
     exit ${ERR_USAGE}
 }
 
-# Clean up
-cleanup
+
+
+# Check for dependencies
+
+# openssl (REQUIRED)
+decho "Path for openssl set to: '${PATH_OPENSSL}'..."
+[ "${PATH_OPENSSL}" == "*" ] && PATH_OPENSSL="openssl"
+PATH_OPENSSL="$(check_for_cmd "openssl" "${PATH_OPENSSL}" 1 1)" || exit $?
+decho "openssl path: ${PATH_OPENSSL}"
+
+
+
+decho "START"
 
 decho "DONE"
+
+# Clean up
+cleanup
 
 exit ${ret}
