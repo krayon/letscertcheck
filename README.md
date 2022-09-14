@@ -1,36 +1,37 @@
-{{{
+```
 _    ____ ___ ____ ____ ____ ____ ___ ____ _  _ ____ ____ _  _ 
 |    |___  |  [__  |    |___ |__/  |  |    |__| |___ |    |_/  
 |___ |___  |  ___] |___ |___ |  \  |  |___ |  | |___ |___ | \_ 
-}}}
-= LetsCertCheck =
+```
 
-== Introduction ==
+# LetsCertCheck
+
+## Introduction
 
 //Lets Cert Check// retrieves the expiry of provided domains' certificates.
 
-== Availability ==
+## Availability
 
-//LetsCertCheck// source is available on
-[[https://gitlab.com/krayon/letscertcheck|GitLab]] and
-[[https://github.com/krayon/letscertcheck|GitHub]] with the primary (public)
-repository being [[https://gitlab.com/krayon/letscertcheck|GitLab]].
+_LetsCertCheck_ source is available on
+[GitHub](https://github.com/krayon/letscertcheck) and
+[GitLab](https://gitlab.com/krayon/letscertcheck with the primary (public)
+repository being [GitHub](https://github.com/krayon/letscertcheck) .
 
-//LetsCertCheck// binary and archive should be signed with my GPG key (
-[[http://pgp.mit.edu/pks/lookup?op=get&search=0x231A94F481ECF212|231A 94F4 81EC F212]]
+_LetsCertCheck_ binary and archive should be signed with my GPG key (
+[231A 94F4 81EC F212](http://pgp.mit.edu/pks/lookup?op=get&search=0x231A94F481ECF212)
 ).
 
-== Bug Tracker ==
+## Bug Tracker
 
--
+- -
 
-== Usage ==
+## Usage
 
-{{{
+```
 $ letscertcheck --help
 
 Lets Cert Check v0.00
-http://gitlab.com/krayon/letscertcheck/
+http://github.com/krayon/letscertcheck/
 
 
 Lets Cert Check retrieves the expiry of provided domains' certificates.
@@ -56,19 +57,20 @@ Usage: letscertcheck.bash -h|--help
 -x|--example        - Shows example output for a series of test domains.
 
 Example: letscertcheck.bash
-}}}
+```
 
-== Features ==
+## Features
 
--
+- -
 
-== Version History ==
+## Version History
 
-* v0.0.0
-** Initial version, doesn't do anything :P
+- v0.0.0
+  - Initial version, doesn't do anything :P
 
-== TODO ==
+## TODO
 
-* Make it do stuff
+- Make it do stuff
 
-<<< vim:set ts=4 sw=4 tw=80 et cindent ai si syn=creole: >>>
+----
+[//]: # ( vim: set ts=4 sw=4 et cindent tw=80 ai si syn=markdown ft=markdown: )
